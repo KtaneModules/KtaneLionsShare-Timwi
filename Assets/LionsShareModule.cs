@@ -46,8 +46,8 @@ public class LionsShareModule : MonoBehaviour
         public LionStatus[] Status;
     }
 
-    private static readonly KeyValuePair<string, bool>[] _visitingLionNames = "Tojo,m;Chumvi,m;Malka,m;Askari,m;Tama,f;Rani,f;Zuri,f;Tiifu,f;Kula,f;Naanda,f;Ndona,f;Sheena,f;Diku,f;Boga,f;Sabini,f;Babu,f;Weena"
-        .Split(',').Select(str => str.Split(','))
+    private static readonly KeyValuePair<string, bool>[] _visitingLionNames = "Tojo,m;Chumvi,m;Malka,m;Askari,m;Tama,f;Rani,f;Zuri,f;Tiifu,f;Kula,f;Naanda,f;Ndona,f;Sheena,f;Diku,f;Boga,f;Sabini,f;Babu,f;Weena,f"
+        .Split(';').Select(str => str.Split(','))
         .Select(arr => new KeyValuePair<string, bool>(arr[0], arr[1] == "m"))
         .ToArray();
 
@@ -147,11 +147,11 @@ Sarafina,f,,223333333333"
             // Any adult siblings* of the King have 7 units each.
             // All other adults have 5 units each.
             else if (lions[i].Status[year] == LionStatus.Adult)
-                entitlement[i] = lions[i].Mother == kingsMother ? 7 : 5;
+                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? 7 : 5;
             // Any cub siblings of the King have 4 units each.
             // All other cubs have 3 units.
             else if (lions[i].Status[year] == LionStatus.Cub)
-                entitlement[i] = lions[i].Mother == kingsMother ? 4 : 3;
+                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? 4 : 3;
             // Lions who do not belong to the pride have only 1 unit.
             else if (lions[i].Status[year] == LionStatus.Visiting)
                 entitlement[i] = 1;
@@ -166,7 +166,7 @@ Sarafina,f,,223333333333"
             // For each lit indicator on the bomb that contains a lion’s name’s first letter, add 4 units for the King, 3 for their adult siblings*, 2 units for any other males and 1 for females.
             var indicatorBonus = Bomb.GetOnIndicators().Count(ind => ind.Any(letter => lionName.Contains(letter))) * (
                 lions[i].Status[year] == LionStatus.King ? 4 :
-                lions[i].Status[year] == LionStatus.Adult && lions[i].Mother == kingsMother ? 3 :
+                lions[i].Status[year] == LionStatus.Adult && lions[i].Mother != "" && lions[i].Mother == kingsMother ? 3 :
                 lions[i].Male ? 2 : 1);
             entitlement[i] += indicatorBonus;
             table[i][1] = indicatorBonus;
@@ -182,25 +182,29 @@ Sarafina,f,,223333333333"
         for (int i = 0; i < lions.Count; i++)
         {
             if (lions[i].Status[year] == LionStatus.Unborn)
-            {
                 table[lions.IndexOf(lion => lion != null && lion.Name == lions[i].Mother)][3]++;
+
+            if (lions[i].Status[year] == LionStatus.Unborn || lions[i].Status[year] == LionStatus.Absent || lions[i].Status[year] == LionStatus.Dead)
+            {
                 lions[i] = null;
+                entitlement[i] = 0;
             }
-            else if (lions[i].Status[year] == LionStatus.Absent || lions[i].Status[year] == LionStatus.Dead)
-                lions[i] = null;
         }
 
+        var totalEntitlement = entitlement.Sum();
+        Debug.LogFormat(@"[Lion’s Share #{0}] Total entitlement: {1}", _moduleId, totalEntitlement);
         Debug.LogFormat(@"[Lion’s Share #{0}] Apportion prey to {1} lions:", _moduleId, lions.Count(l => l != null));
 
         var textTable = new StringBuilder();
         textTable.AppendLine(@"        │   Base│Indictr│Serial#│ Unborn│       │       │   Lead│  Final");
         textTable.AppendLine(@"Lion    │entlmnt│  bonus│  bonus│   cubs│Entlmnt│Portion│huntrss│Portion");
         textTable.AppendLine(@"────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┼───────");
-        var totalEntitlement = entitlement.Sum();
         _correctPortions = new int[lions.Count];
         for (int i = 0; i < lions.Count; i++)
             _correctPortions[i] = entitlement[i] * 100 / totalEntitlement;
         Func<int, string> sgn = num => num == 0 ? "" : "+" + num;
+        var logLines = new[] { new { Name = "", Line = "" } }.ToList();
+        logLines.Clear();
         for (int i = 0; i < lions.Count; i++)
         {
             if (lions[i] == null)
@@ -208,9 +212,15 @@ Sarafina,f,,223333333333"
             var prevPortion = _correctPortions[i];
             var leadHuntressBonus = lions[i] == leadHuntress ? 100 - _correctPortions.Sum() : 0;
             _correctPortions[i] += leadHuntressBonus;
-            textTable.AppendFormat(@"{0,-8}│{1,7}│{2,7}│{3,7}│{4,7}│{5,7}│{6,7}│{7,7}│{8,7}{9}",
-                lions[i].Name, table[i][0], sgn(table[i][1]), sgn(table[i][2]), sgn(table[i][3]), entitlement[i], prevPortion, sgn(leadHuntressBonus), _correctPortions[i], Environment.NewLine);
+            logLines.Add(new
+            {
+                lions[i].Name,
+                Line = string.Format(@"{0,-8}│{1,7}│{2,7}│{3,7}│{4,7}│{5,7}│{6,7}│{7,7}│{8,7}",
+                    lions[i].Name, table[i][0], sgn(table[i][1]), sgn(table[i][2]), sgn(table[i][3]), entitlement[i], prevPortion + "%", sgn(leadHuntressBonus), _correctPortions[i] + "%")
+            });
         }
+        foreach (var line in logLines.OrderBy(l => l.Name))
+            textTable.AppendLine(line.Line);
         Debug.Log(textTable.ToString());
 
         _currentPortions = Enumerable.Range(0, _lionNames.Length).Select(l => 10).ToArray();
