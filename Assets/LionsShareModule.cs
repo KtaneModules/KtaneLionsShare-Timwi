@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using KModkit;
 using LionsShare;
 using UnityEngine;
@@ -20,11 +22,24 @@ public class LionsShareModule : MonoBehaviour
     public Mesh[] PieSliceMeshes;
     public MeshRenderer[] PieSlices;
     public KMSelectable[] LionSelectables;
+    public KMSelectable ButtonInc;
+    public KMSelectable ButtonDec;
+    public KMSelectable ButtonSubmit;
+    public TextMesh Year;
+
     private MeshFilter[] _pieMeshFilters;
     private TextMesh[] _lionNameMeshes;
 
     private static int _moduleIdCounter = 1;
     private int _moduleId;
+    private bool _isSolved;
+    private Color[] _unselectedPieSliceColors;
+    private Color[] _selectedPieSliceColors;
+    private string[] _lionNames;
+    private int[] _currentPortions;
+    private int[] _correctPortions;
+    private int _selectedLion;
+    private float _startAngle;
 
     enum LionStatus
     {
@@ -63,7 +78,7 @@ Kopa,m,Nala,0000000000012
 Kovu,m,Zira,0000000000122333
 Vitani,f,Zira,0000000001223333
 Nuka,m,Zira,0000000012233
-Mheetu,m,Sarabi,000001223344433
+Mheetu,m,Sarabi,0000012233444333
 Zira,f,Sarafina,0000012233333
 Nala,f,Sarafina,0000122333433333
 Simba,m,Sarabi,000124444445555
@@ -72,18 +87,18 @@ Sarafina,f,,223333333333"
         .Replace("\r", "").Split('\n').Select(str => str.Split(','))
         .Select(arr => new Lion { Name = arr[0], Male = arr[1] == "m", Mother = arr[2], Status = arr[3].PadRight(16, '6').Select(ch => (LionStatus) (ch - '0')).ToArray() }).ToArray();
 
-    private string[] _lionNames;
-    private int[] _currentPortions;
-    private int[] _correctPortions;
-
     void Start()
     {
         _moduleId = _moduleIdCounter++;
+        _isSolved = false;
+        _selectedLion = -1;
+        _startAngle = Rnd.Range(0f, 360f);
         _pieMeshFilters = PieSlices.Select(obj => obj.GetComponent<MeshFilter>()).ToArray();
         _lionNameMeshes = LionSelectables.Select(obj => obj.transform.Find("Lion name").GetComponent<TextMesh>()).ToArray();
         Array.Sort(PieSliceMeshes.Select(m => int.Parse(m.name.Substring(5))).ToArray(), PieSliceMeshes);
 
         var year = Rnd.Range(0, 16);
+        Year.text = (year + 1).ToString();
 
         retry:
         var lions = _allLions.Where(l => l.Status[year] != LionStatus.Null).ToList().Shuffle();
@@ -120,18 +135,22 @@ Sarafina,f,,223333333333"
 
         _lionNames = lions.Select(l => l.Name).ToArray();
 
+        Debug.LogFormat(@"[Lion’s Share #{0}] Year: {1}", _moduleId, year);
         Debug.LogFormat(@"[Lion’s Share #{0}] Lions present: {1}", _moduleId, lions
             .OrderBy(l => l.Name)
             .Select(l => string.Format("{0} ({1} {2})", l.Name, l.Male ? "male" : "female", l == leadHuntress ? "adult; lead huntress" : l.Status[year].ToString().ToLowerInvariant()))
             .JoinString(", "));
 
         var w = 1f / lions.Count;
-        var pieSliceColors = Enumerable.Range(0, lions.Count).Select(i => Color.HSVToRGB(w * i, .7f, .8f)).ToList();
+        var hues = Enumerable.Range(0, lions.Count).Select(i => w * i).ToList();
         // Make sure to keep red at the front for the lead huntress
-        var red = pieSliceColors[0];
-        pieSliceColors.RemoveAt(0);
-        pieSliceColors.Shuffle();
-        pieSliceColors.Insert(0, red);
+        var red = hues[0];
+        hues.RemoveAt(0);
+        hues.Shuffle();
+        hues.Insert(0, red);
+
+        _selectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue, .7f, 1f)).ToArray();
+        _unselectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue, .6f, .7f)).ToArray();
 
         var entitlement = new int[lions.Count];
         var kingsMother = lions.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
@@ -164,7 +183,7 @@ Sarafina,f,,223333333333"
             var lionName = lions[i].Name.ToUpperInvariant();
 
             // For each lit indicator on the bomb that contains a lion’s name’s first letter, add 4 units for the King, 3 for their adult siblings*, 2 units for any other males and 1 for females.
-            var indicatorBonus = Bomb.GetOnIndicators().Count(ind => ind.Any(letter => lionName.Contains(letter))) * (
+            var indicatorBonus = Bomb.GetOnIndicators().Count(ind => ind.Contains(lionName[0])) * (
                 lions[i].Status[year] == LionStatus.King ? 4 :
                 lions[i].Status[year] == LionStatus.Adult && lions[i].Mother != "" && lions[i].Mother == kingsMother ? 3 :
                 lions[i].Male ? 2 : 1);
@@ -197,7 +216,7 @@ Sarafina,f,,223333333333"
 
         var textTable = new StringBuilder();
         textTable.AppendLine(@"        │   Base│Indictr│Serial#│ Unborn│       │       │   Lead│  Final");
-        textTable.AppendLine(@"Lion    │entlmnt│  bonus│  bonus│   cubs│Entlmnt│Portion│huntrss│Portion");
+        textTable.AppendLine(@"Lion    │entlmnt│  bonus│  bonus│   cubs│Entlmnt│Portion│huntrss│portion");
         textTable.AppendLine(@"────────┼───────┼───────┼───────┼───────┼───────┼───────┼───────┼───────");
         _correctPortions = new int[lions.Count];
         for (int i = 0; i < lions.Count; i++)
@@ -227,21 +246,172 @@ Sarafina,f,,223333333333"
         while (_currentPortions.Sum() < 100)
             _currentPortions[Rnd.Range(0, _currentPortions.Length)] += Rnd.Range(0, 100 - _currentPortions.Sum()) + 1;
 
-        float runningAngle = 0;
         for (int i = 0; i < _lionNames.Length; i++)
-        {
-            PieSlices[i].material.color = pieSliceColors[i];
-            PieSlices[i].transform.localEulerAngles = new Vector3(0, runningAngle, 0);
-            _pieMeshFilters[i].mesh = PieSliceMeshes[_currentPortions[i] - 1];
-            _lionNameMeshes[i].text = _lionNames[i];
-            LionSelectables[i].transform.localEulerAngles = new Vector3(0, runningAngle + .5f * _currentPortions[i] * 3.6f, 0);
-            runningAngle += _currentPortions[i] * 3.6f;
-        }
-
+            LionSelectables[i].OnInteract = lionClick(i);
         for (int i = _lionNames.Length; i < PieSlices.Length; i++)
         {
             PieSlices[i].gameObject.SetActive(false);
             LionSelectables[i].gameObject.SetActive(false);
+        }
+        ButtonInc.OnInteract = incClick;
+        ButtonDec.OnInteract = decClick;
+        ButtonSubmit.OnInteract = submitClick;
+
+        updatePie();
+    }
+
+    private bool submitClick()
+    {
+        if (_isSolved)
+            return false;
+
+        if (_currentPortions.SequenceEqual(_correctPortions))
+        {
+            Debug.LogFormat(@"[Lion’s Share #{0}] Module solved.", _moduleId);
+            Module.HandlePass();
+            _isSolved = true;
+            _selectedLion = -1;
+            updatePie();
+            Audio.PlaySoundAtTransform("Roar" + Rnd.Range(1, 7), transform);
+        }
+        else
+        {
+            Debug.LogFormat(@"[Lion’s Share #{0}] Incorrect solution submitted ({1}).", _moduleId, _lionNames.Select((l, ix) => string.Format(@"{0}={1}%", l, ix)).JoinString(", "));
+            Module.HandleStrike();
+        }
+        return false;
+    }
+
+    private bool decClick()
+    {
+        if (_selectedLion == -1 || _isSolved)
+            return false;
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, ButtonDec.transform);
+        ButtonDec.AddInteractionPunch(.5f);
+        var otherLion = Enumerable.Range(0, _lionNames.Length).FirstOrDefault(ix => ix != _selectedLion && _currentPortions[ix] != 0);
+        if (otherLion == _selectedLion || _currentPortions[otherLion] == 0)
+            return false;
+        if (_currentPortions[_selectedLion] == 1 && _correctPortions[_selectedLion] != 0)
+        {
+            Debug.LogFormat(@"[Lion’s Share #{0}] Setting {1} to zero would be incorrect. Strike.", _moduleId, _lionNames[_selectedLion]);
+            Module.HandleStrike();
+        }
+        else
+        {
+            _currentPortions[otherLion]++;
+            _currentPortions[_selectedLion]--;
+            _startAngle += otherLion > _selectedLion ? 1.8f : -1.8f;
+            if (_currentPortions[_selectedLion] == 0)
+                _selectedLion = -1;
+            updatePie();
+        }
+        return false;
+    }
+
+    private bool incClick()
+    {
+        if (_selectedLion == -1 || _isSolved)
+            return false;
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, ButtonInc.transform);
+        ButtonInc.AddInteractionPunch(.5f);
+        var otherLion = Enumerable.Range(0, _lionNames.Length).FirstOrDefault(ix => ix != _selectedLion && _currentPortions[ix] > 1);
+        if (otherLion == _selectedLion || _currentPortions[otherLion] <= 1)
+            return false;
+        _currentPortions[otherLion]--;
+        _currentPortions[_selectedLion]++;
+        _startAngle += otherLion > _selectedLion ? -1.8f : 1.8f;
+        updatePie();
+        return false;
+    }
+
+    private KMSelectable.OnInteractHandler lionClick(int i)
+    {
+        return delegate
+        {
+            if (_isSolved)
+                return false;
+            _selectedLion = i;
+            updatePie();
+            return false;
+        };
+    }
+
+    private void updatePie()
+    {
+        float runningAngle = _startAngle;
+        for (int i = 0; i < _lionNames.Length; i++)
+        {
+            if (_currentPortions[i] == 0)
+            {
+                PieSlices[i].gameObject.SetActive(false);
+                LionSelectables[i].gameObject.SetActive(false);
+            }
+            else
+            {
+                PieSlices[i].transform.localPosition = new Vector3(0, i == _selectedLion ? .09f : .03f, 0);
+                PieSlices[i].transform.localEulerAngles = new Vector3(0, runningAngle, 0);
+                PieSlices[i].material.color = (i == _selectedLion ? _selectedPieSliceColors : _unselectedPieSliceColors)[i];
+                _pieMeshFilters[i].mesh = PieSliceMeshes[_currentPortions[i] - 1];
+                //_lionNameMeshes[i].text = string.Format("{0}\n<size=64>{1}%</size>", _lionNames[i], _currentPortions[i]);
+                _lionNameMeshes[i].text = string.Format("<size=65>{1}%</size> {0}", _lionNames[i], _currentPortions[i]);
+                LionSelectables[i].transform.localPosition = new Vector3(0, i == _selectedLion ? .091f : .031f, 0);
+                LionSelectables[i].transform.localEulerAngles = new Vector3(0, runningAngle + .5f * _currentPortions[i] * 3.6f, 0);
+                runningAngle += _currentPortions[i] * 3.6f;
+                PieSlices[i].gameObject.SetActive(true);
+                LionSelectables[i].gameObject.SetActive(true);
+            }
+        }
+    }
+
+#pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"!{0} set Simba 12 [set the percentage for a lion] | !{0} submit [chain with commas]";
+#pragma warning restore 414
+
+    private IEnumerator ProcessTwitchCommand(string command)
+    {
+        if (_isSolved)
+        {
+            yield return "sendtochaterror Module already solved. Look harder!";
+            yield break;
+        }
+
+        var stuffToDo = new List<object>();
+        foreach (var subcommand in command.Split(','))
+        {
+            Match m;
+            if ((m = Regex.Match(subcommand, @"^\s*(?:set\s+)?(\w+)\s+(\d+)\s*$", RegexOptions.IgnoreCase)).Success)
+            {
+                var lionIx = _lionNames.IndexOf(l => l.Equals(m.Groups[1].Value, StringComparison.InvariantCultureIgnoreCase));
+                if (lionIx == -1 || _currentPortions[lionIx] == 0)
+                {
+                    yield return string.Format("sendtochaterror “{0}”? Who ya callin’ oopid-stay?", m.Groups[1].Value);
+                    yield break;
+                }
+                int value;
+                if (!int.TryParse(m.Groups[2].Value, out value) || value > 100)
+                {
+                    yield return string.Format("sendtochaterror “{0}%”? Didn’t your mother ever tell you not to play with your food?", m.Groups[2].Value);
+                    yield break;
+                }
+                stuffToDo.Add(new[] { LionSelectables[lionIx] });
+                stuffToDo.Add(new Func<object>(() => Enumerable.Repeat(value > _currentPortions[lionIx] ? ButtonInc : ButtonDec, Math.Abs(value - _currentPortions[lionIx])).ToArray()));
+            }
+            else if ((m = Regex.Match(subcommand, @"^\s*submit\s*$", RegexOptions.IgnoreCase)).Success)
+            {
+                stuffToDo.Add(new[] { ButtonSubmit });
+            }
+            else
+            {
+                yield return string.Format("sendtochaterror “{0}”? Asante sana, squash banana! Wewe nugu, mimi apana!", subcommand.Trim());
+                yield break;
+            }
+        }
+
+        if (stuffToDo.Count > 0)
+        {
+            yield return null;
+            foreach (var stuff in stuffToDo)
+                yield return stuff is Func<object> ? ((Func<object>) stuff)() : stuff;
         }
     }
 }

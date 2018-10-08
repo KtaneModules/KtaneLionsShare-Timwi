@@ -10,10 +10,11 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 615501dbe4f3fe94fbf4b564abb10237, type: 3}
   m_Name: ModConfig
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: LionsShare
-  title: Lion’s Share
-  description: "<description>\n\nModule created by Timwi.\n\n[url=http://ktane.timwi.de/PDF/Lion%E2%80%99s%20Share.pdf]Manual
+  title: "Lion\u2019s Share"
+  description: "Busa le lizwe, busa lomhlaba wethu. Ubuse ngo xolo. Is\u2019khathi
+    sifikile!\n\nModule created by Timwi.\n\n[url=http://ktane.timwi.de/PDF/Lion%E2%80%99s%20Share.pdf]Manual
     PDF[/url]\n[url=http://ktane.timwi.de/HTML/Lion%E2%80%99s%20Share.html]Manual
     HTML[/url]"
   version: 1.0
