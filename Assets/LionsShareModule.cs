@@ -135,22 +135,21 @@ Sarafina,f,,223333333333"
 
         _lionNames = lions.Select(l => l.Name).ToArray();
 
-        Debug.LogFormat(@"[Lion’s Share #{0}] Year: {1}", _moduleId, year);
+        Debug.LogFormat(@"[Lion’s Share #{0}] Year: {1}", _moduleId, year + 1);
         Debug.LogFormat(@"[Lion’s Share #{0}] Lions present: {1}", _moduleId, lions
             .OrderBy(l => l.Name)
             .Select(l => string.Format("{0} ({1} {2})", l.Name, l.Male ? "male" : "female", l == leadHuntress ? "adult; lead huntress" : l.Status[year].ToString().ToLowerInvariant()))
             .JoinString(", "));
 
-        var w = 1f / lions.Count;
-        var hues = Enumerable.Range(0, lions.Count).Select(i => w * i).ToList();
+        var hues = new List<int> { 0, 28, 61, 123, 180, 232, 270, 303 };
         // Make sure to keep red at the front for the lead huntress
         var red = hues[0];
         hues.RemoveAt(0);
         hues.Shuffle();
         hues.Insert(0, red);
 
-        _selectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue, .7f, 1f)).ToArray();
-        _unselectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue, .6f, .7f)).ToArray();
+        _selectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue / 360f, .7f, 1f)).ToArray();
+        _unselectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue / 360f, .6f, .7f)).ToArray();
 
         var entitlement = new int[lions.Count];
         var kingsMother = lions.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
@@ -201,7 +200,11 @@ Sarafina,f,,223333333333"
         for (int i = 0; i < lions.Count; i++)
         {
             if (lions[i].Status[year] == LionStatus.Unborn)
-                table[lions.IndexOf(lion => lion != null && lion.Name == lions[i].Mother)][3]++;
+            {
+                var motherIx = lions.IndexOf(lion => lion != null && lion.Name == lions[i].Mother);
+                table[motherIx][3]++;
+                entitlement[motherIx]++;
+            }
 
             if (lions[i].Status[year] == LionStatus.Unborn || lions[i].Status[year] == LionStatus.Absent || lions[i].Status[year] == LionStatus.Dead)
             {
@@ -276,7 +279,7 @@ Sarafina,f,,223333333333"
         }
         else
         {
-            Debug.LogFormat(@"[Lion’s Share #{0}] Incorrect solution submitted ({1}).", _moduleId, _lionNames.Select((l, ix) => string.Format(@"{0}={1}%", l, ix)).JoinString(", "));
+            Debug.LogFormat(@"[Lion’s Share #{0}] Incorrect solution submitted ({1}).", _moduleId, _lionNames.Select((l, ix) => string.Format(@"{0}={1}%", l, _currentPortions[ix])).JoinString(", "));
             Module.HandleStrike();
         }
         return false;
