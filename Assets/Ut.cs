@@ -89,5 +89,27 @@ namespace LionsShare
             }
             return -1;
         }
+
+        public static IEnumerable<int> SelectIndexWhere<T>(this IEnumerable<T> source, Predicate<T> predicate)
+        {
+            if (source == null)
+                throw new ArgumentNullException("source");
+            if (predicate == null)
+                throw new ArgumentNullException("predicate");
+            return selectIndexWhereIterator(source, predicate);
+        }
+        private static IEnumerable<int> selectIndexWhereIterator<T>(this IEnumerable<T> source, Predicate<T> predicate)
+        {
+            int i = 0;
+            using (var e = source.GetEnumerator())
+            {
+                while (e.MoveNext())
+                {
+                    if (predicate(e.Current))
+                        yield return i;
+                    i++;
+                }
+            }
+        }
     }
 }

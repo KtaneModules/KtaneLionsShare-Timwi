@@ -18,17 +18,18 @@ public class LionsShareModule : MonoBehaviour
     public KMBombInfo Bomb;
     public KMBombModule Module;
     public KMAudio Audio;
+    public KMRuleSeedable RuleSeedable;
+    public KMColorblindMode ColorblindMode;
 
     public Mesh[] PieSliceMeshes;
     public MeshRenderer[] PieSlices;
+    public MeshFilter[] PieMeshFilters;
     public KMSelectable[] LionSelectables;
+    public TextMesh[] LionNameMeshes;
     public KMSelectable ButtonInc;
     public KMSelectable ButtonDec;
     public KMSelectable ButtonSubmit;
     public TextMesh Year;
-
-    private MeshFilter[] _pieMeshFilters;
-    private TextMesh[] _lionNameMeshes;
 
     private static int _moduleIdCounter = 1;
     private int _moduleId;
@@ -38,8 +39,10 @@ public class LionsShareModule : MonoBehaviour
     private string[] _lionNames;
     private int[] _currentPortions;
     private int[] _correctPortions;
+    private int _leadHuntressIx;
     private int _selectedLion;
     private float _startAngle;
+    private bool _colorblindEnabled;
 
     enum LionStatus
     {
@@ -53,6 +56,8 @@ public class LionsShareModule : MonoBehaviour
         Visiting
     }
 
+    enum IndicatorRule { Any, Lit, Unlit }
+
     sealed class Lion
     {
         public string Name;
@@ -61,6 +66,7 @@ public class LionsShareModule : MonoBehaviour
         public LionStatus[] Status;
     }
 
+    // FOR SEED 1
     private static readonly KeyValuePair<string, bool>[] _visitingLionNames = "Tojo,m;Chumvi,m;Malka,m;Askari,m;Tama,f;Rani,f;Zuri,f;Tiifu,f;Kula,f;Naanda,f;Ndona,f;Sheena,f;Diku,f;Boga,f;Sabini,f;Babu,f;Weena,f"
         .Split(';').Select(str => str.Split(','))
         .Select(arr => new KeyValuePair<string, bool>(arr[0], arr[1] == "m"))
@@ -87,27 +93,169 @@ Sarafina,f,,223333333333"
         .Replace("\r", "").Split('\n').Select(str => str.Split(','))
         .Select(arr => new Lion { Name = arr[0], Male = arr[1] == "m", Mother = arr[2], Status = arr[3].PadRight(16, '6').Select(ch => (LionStatus) (ch - '0')).ToArray() }).ToArray();
 
+    // FOR ALL OTHER RULE SEEDS
+    private static readonly string[] _maleNames = new[] { "Abasi", "Abdu", "Adhama", "Amani", "Anasa", "Ashon", "Atieno", "Ayo", "Azima", "Azizi", "Badru", "Baraka", "Barasa", "Bayana", "Beno", "Busar", "Busara", "Bwana", "Chane", "Daudi", "Duma", "Elea", "Eli", "Fanaka", "Faraji", "Hali", "Hamadi", "Hamidi", "Hamisi", "Hodari", "Ikeno", "Jafari", "Jamba", "Jata", "Jela", "Juma", "Jumaane", "Kamari", "Kiama", "Kifeda", "Kiira", "Kito", "Kitwana", "Kobe", "Koman", "Kuende", "Maulidi", "Mbita", "Mhina", "Mosi", "Moyo", "Mpenda", "Mshindi", "Msia", "Murati", "Musa", "Mwinyi", "Mzuzi", "Neema", "Njogwa", "Nyo", "Rajabu", "Safiri", "Salehe", "Salene", "Sefu", "Shani", "Shomari", "Tabia", "Taji", "Tambo", "Tamu", "Tian", "Umoja", "Usian", "Yahya", "Zahur", "Zakia", "Zawadi", "Abelo", "Amahle", "Amehlo", "Andile", "Anele", "Anelisa", "Avela", "Ayanda", "Ayize", "Azisa", "Bafana", "Bandile", "Bheka", "Bhekifa", "Bongani", "Busiso", "Cakaza", "Cashile", "Cebo", "Cela", "Chacha", "Chaka", "Chakide", "Chipo", "Chotho", "Chweba", "Ciko", "Cilonga", "Cothoza", "Cwatha", "Dabu", "Dabuka", "Daza", "Delani", "Dida", "Dinfa", "Dingane", "Dingani", "Donya", "Dube", "Duma", "Dumisa", "Dumo", "Duna", "Dundu", "Eethaba", "Elethu", "Falakhe", "Fanyana", "Fikile", "Fobela", "Fokazi", "Fowabo", "Fowenu", "Fudu", "Fundani", "Fundisa", "Fuza", "Fuzo", "Gabadi", "Gangi", "Gania", "Ganya", "Gatsha", "Gazi", "Gazini", "Gebhuza", "Geza", "Gibeli", "Gijimi", "Goduka", "Guduza", "Gugu", "Gwala", "Gwazi", "Gwedi", "Gwili", "Hlelile", "Ibubesi", "Ifu", "Igama", "Ikhanda", "Impela", "Impi", "Impisi", "Indlovu", "Induna", "Ingane", "Ingwe", "Inyoni", "Iqaqa", "Iqhunde", "Izagala", "Izula", "Jabu", "Jama", "Kgabu", "Khwezi", "Khulani", "Kubu", "Kufika", "Kwanele", "Kwazulu", "Lethu", "Lindani", "Lindela", "Lindile", "Litha", "Lizwi", "Lunga", "Lungelo", "Lungile", "Luvo", "Luyanda", "Lwazi", "Makhaya", "Malusi", "Manqoba", "Mapoza", "Mbube", "Mcebo", "Mduduzi", "Menzi", "Mfundo", "Mhambi", "Mmeli", "Mndeni", "Mnotho", "Mnqobi", "Mondli", "Mpilo", "Mpucuko", "Msizi", "Mthunzi", "Musa", "Mvelo", "Mzamo", "Ndonsa", "Nduduzo", "Ndumiso", "Nhlahla", "Nikhil", "Njabulo", "Nkosi", "Nqobani", "Nsizwa", "Owethu", "Phakama", "Phila", "Philani", "Qhude", "Qiniso", "Sakhile", "Sandile", "Sanele", "Sbu", "Sduduzo", "Senzo", "Sfiso", "Sibonele", "Sifiso", "Sihle", "Siphiwe", "Sipho", "Siyanda", "Siza", "Sizani", "Sizwe", "Tandie", "Thabo", "Thando", "Thatha", "Themba", "Thulani", "Ubaba", "Ukuza", "Ulwazi", "Umzuzu", "Unathi", "Uyise", "Vala", "Velaphi", "Vukani", "Vusi", "Vuyo", "Wandile", "Wenzile", "Xhegu", "Xhibeni", "Xolani", "Zamani", "Zenzele", "Zonke" };
+    private static readonly string[] _femaleNames = new[] { "Adhama", "Adia", "Afiya", "Aishia", "Akina", "Aleela", "Aluna", "Amana", "Amanika", "Andaiye", "Angalia", "Arusi", "Ashura", "Asya", "Atiena", "Ayah", "Ayubu", "Bahati", "Bakari", "Baraka", "Barika", "Bavana", "Budhya", "Busara", "Chagina", "Chanua", "Chiku", "Chinira", "Dafina", "Dalia", "Dalila", "Dinka", "Elea", "Elewa", "Endana", "Endelea", "Fanaka", "Faraji", "Fikira", "Gethera", "Goma", "Halima", "Halina", "Halisi", "Hasana", "Hasina", "Hawa", "Heshima", "Himaya", "Hodari", "Imani", "Imara", "Inira", "Inithia", "Itanya", "Jaha", "Jahaira", "Jamaa", "Jamani", "Jamba", "Jehlani", "Jiona", "Julisha", "Kakena", "Kalere", "Kaluwa", "Kamara", "Kamaria", "Kanene", "Kanika", "Kanisa", "Karama", "Kenura", "Kesi", "Khadija", "Kiama", "Kiania", "Kibibi", "Kichea", "Kiira", "Kilinda", "Kinaya", "Kinjia", "Kito", "Koffi", "Kudio", "Kuende", "Kwashi", "Lindana", "Lindia", "Lisha", "Madini", "Mahiri", "Majda", "Maji", "Majida", "Malika", "Maliza", "Marini", "Mashika", "Masika", "Maulidi", "Milima", "Mkiwa", "Msia", "Mwamini", "Mwasaa", "Mwatabu", "Nadira", "Najuma", "Nbushe", "Neema", "Nigesa", "Nurisha", "Nyota", "Onyesha", "Otesha", "Oyana", "Panya", "Penda", "Radhiya", "Rasheda", "Rashida", "Rasida", "Raziya", "Rehema", "Risala", "Rukiya", "Saada", "Safika", "Safiri", "Salama", "Sanura", "Sauda", "Shani", "Shauri", "Siti", "Subira", "Taabu", "Tabara", "Taji", "Tamu", "Tia", "Tisa", "Tuliza", "Ujamaa", "Ujana", "Umija", "Usia", "Waseme", "Winda", "Zahra", "Zaida", "Zakiya", "Zawadi", "Zawati", "Zuri", "Zuwena", "Amahle", "Amehlo", "Andile", "Anele", "Anelisa", "Aphiwe", "Ayanda", "Ayize", "Bheka", "Bongani", "Bongile", "Bongiwe", "Buhle", "Cabanga", "Cebile", "Dade", "Dansa", "Davathi", "Deliwe", "Dida", "Didiza", "Dumile", "Ejaj", "Ekuseni", "Elethu", "Enama", "Enanela", "Esasa", "Ethuka", "Ethulo", "Ethwasa", "Fahlasi", "Fakazi", "Fikile", "Fudu", "Fula", "Funani", "Futhi", "Gagasi", "Gatsha", "Gede", "Gonothi", "Gqamile", "Gugu", "Icici", "Ifu", "Impela", "Impisi", "Indlovu", "Ingani", "Ingwe", "Inyoni", "Ishumi", "Izula", "Jabhile", "Jezile", "Kgabu", "Khanya", "Khaya", "Kholiwe", "Khule", "Khwezi", "Kwanele", "Lethiwe", "Lethu", "Lindiwe", "Londiwe", "Lungelo", "Lungile", "Luvo", "Lwandle", "Mbali", "Mhambi", "Minehle", "Mlilo", "Mondli", "Msizi", "Mthunzi", "Naledi", "Nandi", "Ndonsa", "Ndumiso", "Njabulo", "Njabulu", "Nobantu", "Nobuhle", "Nobuntu", "Nokwazi", "Nolwazi", "Nomcebo", "Nompilo", "Nomsa", "Nomusa", "Nomvula", "Nomzamo", "Nonhle", "Nosipho", "Noxolo", "Nozipho", "Nozizwe", "Nqobile", "Ntokozo", "Ntombi", "Ogogo", "Philile", "Qhikiza", "Qiniso", "Ramla", "Sakhile", "Sandile", "Sibahle", "Sifiso", "Sihle", "Siphiwe", "Sipho", "Siyanda", "Siza", "Sizani", "Sizwe", "Sonto", "Thabile", "Thabisa", "Thandie", "Thando", "Themba", "Thembi", "Thoko", "Thulani", "Thulile", "Uju", "Ukudala", "Ukuza", "Umakoti", "Umzuzu", "Unathi", "Unina", "Usizo", "Vala", "Velile", "Vemvane", "Vumela", "Vumile", "Vuyiswa", "Welile", "Winile", "Xolani", "Xolile", "Zamani", "Zamile", "Zandile", "Zanele", "Zibu", "Zinhle", "Zodwa", "Zola", "Zongile", "Zonke", "Zula" };
+
     void Start()
     {
         _moduleId = _moduleIdCounter++;
         _isSolved = false;
         _selectedLion = -1;
         _startAngle = Rnd.Range(0f, 360f);
-        _pieMeshFilters = PieSlices.Select(obj => obj.GetComponent<MeshFilter>()).ToArray();
-        _lionNameMeshes = LionSelectables.Select(obj => obj.transform.Find("Lion name").GetComponent<TextMesh>()).ToArray();
-        Array.Sort(PieSliceMeshes.Select(m => int.Parse(m.name.Substring(5))).ToArray(), PieSliceMeshes);
+        _colorblindEnabled = ColorblindMode.ColorblindModeActive;
 
+        // Generate rules
+        var rnd = RuleSeedable.GetRNG();
+        Lion[] pride;
+        KeyValuePair<string, bool>[] visitingLionNames;
+        int leadHuntressColorIx, entitlementKing, entitlementAdultSibling, entitlementAdult, entitlementCubSibling, entitlementCub, entitlementIndKing, entitlementIndSibling, entitlementIndMale, entitlementIndFemale, entitlementSn;
+        IndicatorRule indicatorRule;
+        if (rnd.Seed == 1)
+        {
+            // Default rules
+            pride = _allLions;
+            visitingLionNames = _visitingLionNames;
+            entitlementKing = 10;
+            entitlementAdultSibling = 7;
+            entitlementAdult = 5;
+            entitlementCubSibling = 4;
+            entitlementCub = 3;
+            entitlementIndKing = 4;
+            entitlementIndSibling = 3;
+            entitlementIndMale = 2;
+            entitlementIndFemale = 1;
+            entitlementSn = 1;
+            leadHuntressColorIx = 0;
+            indicatorRule = IndicatorRule.Lit;
+        }
+        else
+        {
+            while (true)
+            {
+                // Pick 35 lion names
+                var allNames = rnd.ShuffleFisherYates(_maleNames.Concat(_femaleNames).ToArray());
+                var candidate = 0;
+                var lionNames = new List<string>();
+                while (lionNames.Count < 35)
+                {
+                    var name = allNames[candidate++];
+                    if (!lionNames.Contains(name))
+                        lionNames.Add(name);
+                }
+
+                // Decide which lions are in the pride and which ones are visiting
+                pride = lionNames.Take(18).Select(name => new Lion { Name = name, Male = !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0 }).ToArray();
+                visitingLionNames = lionNames.Skip(18).Select(name => new KeyValuePair<string, bool>(name, !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0)).ToArray();
+                var birthyear = new int[18];
+
+                // Decide on a random birthyear and lifespan for each lion (lifespan includes “unborn” phase)
+                for (var i = 0; i < pride.Length; i++)
+                {
+                    var lifespan = rnd.Next(2, 15);
+                    var cubhood = new[] { 1, 2, 2, 2, 2, 2, 3 }[rnd.Next(0, 6)];
+                    birthyear[i] = rnd.Next(Math.Max(-5, 2 - lifespan), 17);
+                    pride[i].Status = new LionStatus[16];
+                    for (var yr = 1; yr <= 16; yr++)
+                        pride[i].Status[yr - 1] =
+                            yr < birthyear[i] ? LionStatus.Null :
+                            yr == birthyear[i] ? LionStatus.Unborn :
+                            yr < birthyear[i] + cubhood + 1 ? LionStatus.Cub :
+                            yr < birthyear[i] + lifespan ? (rnd.Next(0, 8) == 0 ? LionStatus.Absent : LionStatus.Adult) :
+                            LionStatus.Dead;
+                }
+
+                // Make sure there’s an adult male and an adult female in every year so we can always have a king and a lead huntress
+                var valid = true;
+                int? currentKing = null;
+                for (var yr = 0; (yr < 16) && valid; yr++)
+                {
+                    var potentialKings = pride.SelectIndexWhere(lion => lion.Male && lion.Status[yr] == LionStatus.Adult).ToArray();
+                    var potentialMothers = pride.SelectIndexWhere(lion => !lion.Male && lion.Status[yr] == LionStatus.Adult).ToArray();
+                    if (potentialKings.Length == 0 || potentialMothers.Length == 0)
+                        valid = false;
+                    else
+                    {
+                        // Assign a king
+                        if (currentKing == null || !potentialKings.Contains(currentKing.Value))
+                            currentKing = potentialKings[rnd.Next(0, potentialKings.Length)];
+                        pride[currentKing.Value].Status[yr] = LionStatus.King;
+
+                        // Give greater weight to younger mothers
+                        Array.Sort(potentialMothers, (a, b) =>
+                        {
+                            var val = birthyear[b] - birthyear[a];
+                            return val != 0 ? val : pride[a].Name.CompareTo(pride[b].Name);
+                        });
+                        var chooseFrom = new List<int>();
+                        for (var i = 0; i < potentialMothers.Length; i++)
+                            for (var j = 0; j <= i; j++)
+                                chooseFrom.Add(potentialMothers[j]);
+
+                        // Give every unborn cub a mother
+                        for (var i = 0; i < pride.Length; i++)
+                            if (pride[i].Status[yr] == LionStatus.Unborn)
+                                pride[i].Mother = pride[chooseFrom[rnd.Next(0, chooseFrom.Count)]].Name;
+                    }
+                }
+                if (!valid)
+                    continue;
+
+                // Sort by birthyear
+                var indexes = Enumerable.Range(0, pride.Length).ToArray();
+                Array.Sort(indexes, (a, b) =>
+                {
+                    var val = birthyear[a] - birthyear[b];
+                    return val != 0 ? val : pride[a].Name.CompareTo(pride[b].Name);
+                });
+                pride = indexes.Select(ix => pride[ix]).ToArray();
+
+                // Make sure that the lifespans won’t overlap on the chart
+                valid = true;
+                for (var i = 0; (i < 6) && valid; i++)
+                    if (pride[i + 12].Status[Array.IndexOf(pride[i].Status, LionStatus.Dead)] != LionStatus.Null)
+                        valid = false;
+                if (!valid)
+                    continue;
+
+                break;
+            }
+
+            entitlementKing = rnd.Next(10, 20);
+            entitlementAdultSibling = entitlementKing - rnd.Next(1, 4);
+            entitlementAdult = entitlementAdultSibling - rnd.Next(1, 3);
+            entitlementCubSibling = entitlementAdult - rnd.Next(1, 4);
+            entitlementCub = Math.Max(1, entitlementCubSibling - rnd.Next(1, 4));
+
+            indicatorRule = (IndicatorRule) rnd.Next(0, 3);
+
+            entitlementIndKing = rnd.Next(3, 6);
+            entitlementIndSibling = entitlementIndKing - rnd.Next(1, 3);
+            entitlementIndMale = rnd.Next(1, 3);
+            entitlementIndFemale = 3 - entitlementIndMale;
+            entitlementSn = rnd.Next(1, 3);
+
+            leadHuntressColorIx = rnd.Next(0, 8);
+
+            Debug.LogFormat("<Lion’s Share #{0}> Pride:\n{1}", _moduleId, pride.Select(l => string.Format("{0} ({1}) = {2} / {3}", l.Name, l.Male ? "m" : "f", l.Status.Select(val => (int) val).JoinString(), l.Mother)).JoinString("\n"));
+            Debug.LogFormat(@"<Lion’s Share #{0}> Numbers: {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, LHC={11}", _moduleId,
+                entitlementKing, entitlementAdultSibling, entitlementAdult, entitlementCubSibling, entitlementCub,
+                entitlementIndKing, entitlementIndSibling, entitlementIndMale, entitlementIndFemale, entitlementSn, leadHuntressColorIx);
+        }
+
+
+        // Generate puzzle
         var year = Rnd.Range(0, 16);
         Year.text = (year + 1).ToString();
 
         retry:
-        var lions = _allLions.Where(l => l.Status[year] != LionStatus.Null).ToList().Shuffle();
+        var lions = pride.Where(l => l.Status[year] != LionStatus.Null).ToList().Shuffle();
         while (lions.Count > 8)
             lions.RemoveAt(Rnd.Range(0, lions.Count));
         var numRemove = new[] { 0, 1, 1, 1, 2, 3 }[Rnd.Range(0, 5)];
         for (int i = 0; i < numRemove; i++)
             lions.RemoveAt(Rnd.Range(0, lions.Count));
-        var visitingLions = _visitingLionNames.ToList();
+        var visitingLions = visitingLionNames.ToList();
         for (int i = Rnd.Range(0, lions.Count / 2); i > 0; i--)
         {
             var visitor = visitingLions[Rnd.Range(0, visitingLions.Count)];
@@ -129,9 +277,16 @@ Sarafina,f,,223333333333"
         if (lions.Count(l => l.Status[year] != LionStatus.Unborn && l.Status[year] != LionStatus.Dead && l.Status[year] != LionStatus.Absent) < 2)
             goto retry;
 
-        // Make sure the lead huntress is red
+        // Shuffle up the colors, but make sure the color for the lead huntress is in range
+        var hues = new List<int> { 0, 28, 61, 123, 180, 232, 270, 303 };
+        var leadHuntressHue = hues[leadHuntressColorIx];
+        do
+            hues.Shuffle();
+        while (hues.IndexOf(leadHuntressHue) >= lions.Count);
+
+        // Make sure the lead huntress will have the correct color
         lions.Remove(leadHuntress);
-        lions.Insert(0, leadHuntress);
+        lions.Insert(hues.IndexOf(leadHuntressHue), leadHuntress);
 
         _lionNames = lions.Select(l => l.Name).ToArray();
 
@@ -141,15 +296,9 @@ Sarafina,f,,223333333333"
             .Select(l => string.Format("{0} ({1} {2})", l.Name, l.Male ? "male" : "female", l == leadHuntress ? "adult; lead huntress" : l.Status[year].ToString().ToLowerInvariant()))
             .JoinString(", "));
 
-        var hues = new List<int> { 0, 28, 61, 123, 180, 232, 270, 303 };
-        // Make sure to keep red at the front for the lead huntress
-        var red = hues[0];
-        hues.RemoveAt(0);
-        hues.Shuffle();
-        hues.Insert(0, red);
-
         _selectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue / 360f, .7f, 1f)).ToArray();
         _unselectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue / 360f, .6f, .7f)).ToArray();
+        _leadHuntressIx = lions.IndexOf(leadHuntress);
 
         var entitlement = new int[lions.Count];
         var kingsMother = lions.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
@@ -161,15 +310,15 @@ Sarafina,f,,223333333333"
 
             // The King, if present, has 10 units of entitlement.
             if (lions[i].Status[year] == LionStatus.King)
-                entitlement[i] = 10;
-            // Any adult siblings* of the King have 7 units each.
+                entitlement[i] = entitlementKing;
+            // Any adult siblings of the King have 7 units each.
             // All other adults have 5 units each.
             else if (lions[i].Status[year] == LionStatus.Adult)
-                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? 7 : 5;
+                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? entitlementAdultSibling : entitlementAdult;
             // Any cub siblings of the King have 4 units each.
             // All other cubs have 3 units.
             else if (lions[i].Status[year] == LionStatus.Cub)
-                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? 4 : 3;
+                entitlement[i] = lions[i].Mother != "" && lions[i].Mother == kingsMother ? entitlementCubSibling : entitlementCub;
             // Lions who do not belong to the pride have only 1 unit.
             else if (lions[i].Status[year] == LionStatus.Visiting)
                 entitlement[i] = 1;
@@ -183,14 +332,14 @@ Sarafina,f,,223333333333"
 
             // For each lit indicator on the bomb that contains a lion’s name’s first letter, add 4 units for the King, 3 for their adult siblings*, 2 units for any other males and 1 for females.
             var indicatorBonus = Bomb.GetOnIndicators().Count(ind => ind.Contains(lionName[0])) * (
-                lions[i].Status[year] == LionStatus.King ? 4 :
-                lions[i].Status[year] == LionStatus.Adult && lions[i].Mother != "" && lions[i].Mother == kingsMother ? 3 :
-                lions[i].Male ? 2 : 1);
+                lions[i].Status[year] == LionStatus.King ? entitlementIndKing :
+                lions[i].Status[year] == LionStatus.Adult && lions[i].Mother != "" && lions[i].Mother == kingsMother ? entitlementIndSibling :
+                lions[i].Male ? entitlementIndMale : entitlementIndFemale);
             entitlement[i] += indicatorBonus;
             table[i][1] = indicatorBonus;
 
             // For each serial number letter contained in a lion’s name, add 1 unit.
-            var serialNumberBonus = Bomb.GetSerialNumberLetters().Count(letter => lionName.Contains(letter));
+            var serialNumberBonus = entitlementSn * Bomb.GetSerialNumberLetters().Count(letter => lionName.Contains(letter));
             entitlement[i] += serialNumberBonus;
             table[i][2] = serialNumberBonus;
         }
@@ -272,6 +421,7 @@ Sarafina,f,,223333333333"
         {
             Debug.LogFormat(@"[Lion’s Share #{0}] Module solved.", _moduleId);
             Module.HandlePass();
+            Year.text = "";
             _isSolved = true;
             _selectedLion = -1;
             updatePie();
@@ -354,9 +504,8 @@ Sarafina,f,,223333333333"
                 PieSlices[i].transform.localPosition = new Vector3(0, i == _selectedLion ? .09f : .03f, 0);
                 PieSlices[i].transform.localEulerAngles = new Vector3(0, runningAngle, 0);
                 PieSlices[i].material.color = (i == _selectedLion ? _selectedPieSliceColors : _unselectedPieSliceColors)[i];
-                _pieMeshFilters[i].mesh = PieSliceMeshes[_currentPortions[i] - 1];
-                //_lionNameMeshes[i].text = string.Format("{0}\n<size=64>{1}%</size>", _lionNames[i], _currentPortions[i]);
-                _lionNameMeshes[i].text = string.Format("<size=65>{1}%</size> {0}", _lionNames[i], _currentPortions[i]);
+                PieMeshFilters[i].mesh = PieSliceMeshes[_currentPortions[i] - 1];
+                LionNameMeshes[i].text = string.Format("<size=65>{1}%</size> {0}", _colorblindEnabled && i == _leadHuntressIx ? _lionNames[i].ToUpperInvariant() : _lionNames[i], _currentPortions[i]);
                 LionSelectables[i].transform.localPosition = new Vector3(0, i == _selectedLion ? .091f : .031f, 0);
                 LionSelectables[i].transform.localEulerAngles = new Vector3(0, runningAngle + .5f * _currentPortions[i] * 3.6f, 0);
                 runningAngle += _currentPortions[i] * 3.6f;
@@ -375,6 +524,14 @@ Sarafina,f,,223333333333"
         if (_isSolved)
         {
             yield return "sendtochaterror Module already solved. Look harder!";
+            yield break;
+        }
+
+        if (Regex.IsMatch(command, @"^\s*color\s*blind\s*$", RegexOptions.IgnoreCase))
+        {
+            _colorblindEnabled = true;
+            updatePie();
+            yield return null;
             yield break;
         }
 
