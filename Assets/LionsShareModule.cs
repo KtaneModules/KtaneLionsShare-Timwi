@@ -301,7 +301,7 @@ Sarafina,f,,223333333333"
         _leadHuntressIx = lions.IndexOf(leadHuntress);
 
         var entitlement = new int[lions.Count];
-        var kingsMother = lions.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
+        var kingsMother = pride.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
         var table = new int[lions.Count][];
 
         for (int i = 0; i < lions.Count; i++)
