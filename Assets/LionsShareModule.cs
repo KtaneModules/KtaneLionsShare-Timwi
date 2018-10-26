@@ -43,6 +43,7 @@ public class LionsShareModule : MonoBehaviour
     private int _selectedLion;
     private float _startAngle;
     private bool _colorblindEnabled;
+    private Coroutine _longPressCoroutine;
 
     enum LionStatus
     {
@@ -326,12 +327,16 @@ Sarafina,f,,223333333333"
             table[i][0] = entitlement[i];
         }
 
+        var indicators =
+            indicatorRule == IndicatorRule.Lit ? Bomb.GetOnIndicators() :
+            indicatorRule == IndicatorRule.Unlit ? Bomb.GetOffIndicators() : Bomb.GetIndicators();
+
         for (int i = 0; i < lions.Count; i++)
         {
             var lionName = lions[i].Name.ToUpperInvariant();
 
-            // For each lit indicator on the bomb that contains a lion’s name’s first letter, add 4 units for the King, 3 for their adult siblings*, 2 units for any other males and 1 for females.
-            var indicatorBonus = Bomb.GetOnIndicators().Count(ind => ind.Contains(lionName[0])) * (
+            // For each [lit/unlit] indicator on the bomb that contains a lion’s name’s first letter, add 4 units for the King, 3 for their adult siblings*, 2 units for any other males and 1 for females.
+            var indicatorBonus = indicators.Count(ind => ind.Contains(lionName[0])) * (
                 lions[i].Status[year] == LionStatus.King ? entitlementIndKing :
                 lions[i].Status[year] == LionStatus.Adult && lions[i].Mother != "" && lions[i].Mother == kingsMother ? entitlementIndSibling :
                 lions[i].Male ? entitlementIndMale : entitlementIndFemale);
@@ -405,8 +410,10 @@ Sarafina,f,,223333333333"
             PieSlices[i].gameObject.SetActive(false);
             LionSelectables[i].gameObject.SetActive(false);
         }
-        ButtonInc.OnInteract = incClick;
-        ButtonDec.OnInteract = decClick;
+        ButtonInc.OnInteract = btnDown(ButtonInc);
+        ButtonDec.OnInteract = btnDown(ButtonDec);
+        ButtonInc.OnInteractEnded = btnUp;
+        ButtonDec.OnInteractEnded = btnUp;
         ButtonSubmit.OnInteract = submitClick;
 
         updatePie();
@@ -425,7 +432,7 @@ Sarafina,f,,223333333333"
             _isSolved = true;
             _selectedLion = -1;
             updatePie();
-            Audio.PlaySoundAtTransform("Roar" + Rnd.Range(1, 7), transform);
+            Audio.PlaySoundAtTransform("Roar" + Rnd.Range(1, 5), transform);
         }
         else
         {
@@ -435,12 +442,72 @@ Sarafina,f,,223333333333"
         return false;
     }
 
-    private bool decClick()
+    private KMSelectable.OnInteractHandler btnDown(KMSelectable selectable)
+    {
+        return delegate
+        {
+            if (_isSolved)
+                return false;
+
+            selectable.AddInteractionPunch(.25f);
+            Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, selectable.transform);
+
+            if (_longPressCoroutine != null)
+                StopCoroutine(_longPressCoroutine);
+
+            var gotStrike = false;
+            if (selectable == ButtonInc)
+                incLion();
+            else
+                gotStrike = decLion();
+            if (!gotStrike)
+                _longPressCoroutine = StartCoroutine(processLongPress(inc: selectable == ButtonInc));
+            return false;
+        };
+    }
+
+    private void btnUp()
+    {
+        if (!_isSolved && _longPressCoroutine != null)
+            StopCoroutine(_longPressCoroutine);
+    }
+
+    private IEnumerator processLongPress(bool inc)
+    {
+        var start = Time.fixedTime;
+        var speed = .27f;
+
+        while (true)
+        {
+            yield return null;
+            if (_selectedLion == -1)
+            {
+                _longPressCoroutine = null;
+                yield break;
+            }
+
+            if ((Time.fixedTime - start) > speed)
+            {
+                if (inc)
+                    incLion();
+                else if (decLion())
+                {
+                    _longPressCoroutine = null;
+                    yield break;
+                }
+
+                start = Time.fixedTime;
+                if (speed > .025f)
+                    speed *= .5f;
+            }
+        }
+    }
+
+
+    private bool decLion()
     {
         if (_selectedLion == -1 || _isSolved)
             return false;
-        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, ButtonDec.transform);
-        ButtonDec.AddInteractionPunch(.5f);
         var otherLion = Enumerable.Range(0, _lionNames.Length).FirstOrDefault(ix => ix != _selectedLion && _currentPortions[ix] != 0);
         if (otherLion == _selectedLion || _currentPortions[otherLion] == 0)
             return false;
@@ -448,6 +515,7 @@ Sarafina,f,,223333333333"
         {
             Debug.LogFormat(@"[Lion’s Share #{0}] Setting {1} to zero would be incorrect. Strike.", _moduleId, _lionNames[_selectedLion]);
             Module.HandleStrike();
+            return true;
         }
         else
         {
@@ -457,24 +525,21 @@ Sarafina,f,,223333333333"
             if (_currentPortions[_selectedLion] == 0)
                 _selectedLion = -1;
             updatePie();
+            return false;
         }
-        return false;
     }
 
-    private bool incClick()
+    private void incLion()
     {
         if (_selectedLion == -1 || _isSolved)
-            return false;
-        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, ButtonInc.transform);
-        ButtonInc.AddInteractionPunch(.5f);
+            return;
         var otherLion = Enumerable.Range(0, _lionNames.Length).FirstOrDefault(ix => ix != _selectedLion && _currentPortions[ix] > 1);
         if (otherLion == _selectedLion || _currentPortions[otherLion] <= 1)
-            return false;
+            return;
         _currentPortions[otherLion]--;
         _currentPortions[_selectedLion]++;
         _startAngle += otherLion > _selectedLion ? -1.8f : 1.8f;
         updatePie();
-        return false;
     }
 
     private KMSelectable.OnInteractHandler lionClick(int i)
@@ -519,6 +584,12 @@ Sarafina,f,,223333333333"
     private readonly string TwitchHelpMessage = @"!{0} set Simba 12 [set the percentage for a lion] | !{0} submit [chain with commas]";
 #pragma warning restore 414
 
+    sealed class TwitchTodo
+    {
+        public int LionIndex;
+        public int TargetValue;
+    }
+
     private IEnumerator ProcessTwitchCommand(string command)
     {
         if (_isSolved)
@@ -553,8 +624,7 @@ Sarafina,f,,223333333333"
                     yield return string.Format("sendtochaterror “{0}%”? Didn’t your mother ever tell you not to play with your food?", m.Groups[2].Value);
                     yield break;
                 }
-                stuffToDo.Add(new[] { LionSelectables[lionIx] });
-                stuffToDo.Add(new Func<object>(() => Enumerable.Repeat(value > _currentPortions[lionIx] ? ButtonInc : ButtonDec, Math.Abs(value - _currentPortions[lionIx])).ToArray()));
+                stuffToDo.Add(new TwitchTodo { LionIndex = lionIx, TargetValue = value });
             }
             else if ((m = Regex.Match(subcommand, @"^\s*submit\s*$", RegexOptions.IgnoreCase)).Success)
             {
@@ -571,7 +641,29 @@ Sarafina,f,,223333333333"
         {
             yield return null;
             foreach (var stuff in stuffToDo)
-                yield return stuff is Func<object> ? ((Func<object>) stuff)() : stuff;
+            {
+                var todo = stuff as TwitchTodo;
+                if (todo != null)
+                {
+                    yield return new[] { LionSelectables[todo.LionIndex] };
+                    yield return new WaitForSeconds(.25f);
+                    if (_currentPortions[todo.LionIndex] == todo.TargetValue)
+                        continue;
+                    var button = todo.TargetValue > _currentPortions[todo.LionIndex] ? ButtonInc : ButtonDec;
+                    if (_currentPortions[todo.LionIndex] > 1 || button == ButtonInc)
+                    {
+                        yield return button;
+                        // Only go down to 1 because going down to 0 can give a strike, which would cause TP to miss the btnUp event
+                        while (_currentPortions[todo.LionIndex] > 1 && _currentPortions[todo.LionIndex] != todo.TargetValue)
+                            yield return null;
+                        yield return button;
+                    }
+                    if (todo.TargetValue == 0)
+                        yield return new[] { ButtonDec };
+                }
+                else
+                    yield return stuff;
+            }
         }
     }
 }
