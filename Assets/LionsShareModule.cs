@@ -649,7 +649,7 @@ Sarafina,f,,223333333333"
             }
             else
             {
-                yield return string.Format("sendtochaterror “{0}”? Asante sana, squash banana! Wewe nugu, mimi apana!", subcommand.Trim());
+                yield return string.Format("sendtochaterror “{0}”? Asante sana, squash banana! Wewe nugu, mimi hapana!", subcommand.Trim());
                 yield break;
             }
         }
