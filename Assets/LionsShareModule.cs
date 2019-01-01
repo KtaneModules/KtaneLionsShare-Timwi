@@ -215,7 +215,7 @@ Sarafina,f,,223333333333"
                 // Make sure that the lifespans won’t overlap on the chart
                 valid = true;
                 for (var i = 0; (i < 6) && valid; i++)
-                    if (pride[i + 12].Status[Array.IndexOf(pride[i].Status, LionStatus.Dead)] != LionStatus.Null)
+                    if (Array.IndexOf(pride[i].Status, LionStatus.Dead) == -1 || pride[i + 12].Status[Array.IndexOf(pride[i].Status, LionStatus.Dead)] != LionStatus.Null)
                         valid = false;
                 if (!valid)
                     continue;
