@@ -108,6 +108,8 @@ Sarafina,f,,223333333333"
 
         // Generate rules
         var rnd = RuleSeedable.GetRNG();
+        Debug.LogFormat("[Lion’s Share #{0}] Using rule seed: {1}", _moduleId, rnd.Seed);
+
         Lion[] pride;
         KeyValuePair<string, bool>[] visitingLionNames;
         int leadHuntressColorIx, entitlementKing, entitlementAdultSibling, entitlementAdult, entitlementCubSibling, entitlementCub, entitlementIndKing, entitlementIndSibling, entitlementIndMale, entitlementIndFemale, entitlementSn;
