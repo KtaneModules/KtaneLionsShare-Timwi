@@ -256,23 +256,19 @@ Sarafina,f,,223333333333"
 
         retry:
         var lions = pride.Where(l => l.Status[year] != LionStatus.Null).ToList().Shuffle();
-        Debug.LogFormat("<Lion’s Share #{0}> Lions A: {1}", _moduleId, lions.Select(l => l.Name).JoinString(", "));
         while (lions.Count > 8)
             lions.RemoveAt(Rnd.Range(0, lions.Count));
         var numRemove = new[] { 0, 1, 1, 1, 2, 3 }[Rnd.Range(0, 6)];
         for (int i = 0; i < numRemove; i++)
             lions.RemoveAt(Rnd.Range(0, lions.Count));
-        Debug.LogFormat("<Lion’s Share #{0}> Lions B: {1}", _moduleId, lions.Select(l => l.Name).JoinString(", "));
         var visitingLions = visitingLionNames.ToList();
         for (int i = Rnd.Range(0, lions.Count / 2); i > 0; i--)
         {
             var visitor = visitingLions[Rnd.Range(0, visitingLions.Count)];
-            Debug.LogFormat("<Lion’s Share #{0}> Replacing {1} ({2}) with {3}", _moduleId, i, lions[i].Name, visitor.Key);
             lions[i] = new Lion { Name = visitor.Key, Male = visitor.Value, Status = new LionStatus[16] };
             lions[i].Status[year] = LionStatus.Visiting;
             visitingLions.Remove(visitor);
         }
-        Debug.LogFormat("<Lion’s Share #{0}> Lions C: {1}", _moduleId, lions.Select(l => l.Name).JoinString(", "));
 
         // We need a lead huntress
         var leadHuntress = lions.FirstOrDefault(l => !l.Male && l.Status[year] == LionStatus.Adult);
@@ -287,8 +283,6 @@ Sarafina,f,,223333333333"
         if (lions.Count(l => l.Status[year] != LionStatus.Unborn && l.Status[year] != LionStatus.Dead && l.Status[year] != LionStatus.Absent) < 2)
             goto retry;
 
-        Debug.LogFormat("<Lion’s Share #{0}> Lions D: {1} (after retry loop)", _moduleId, lions.Select(l => l.Name).JoinString(", "));
-
         // Shuffle up the colors, but make sure the color for the lead huntress is in range
         var hues = new List<int> { 0, 28, 61, 123, 180, 232, 270, 303 };
         var leadHuntressHue = hues[leadHuntressColorIx];
@@ -300,15 +294,13 @@ Sarafina,f,,223333333333"
         lions.Remove(leadHuntress);
         lions.Insert(hues.IndexOf(leadHuntressHue), leadHuntress);
 
-        Debug.LogFormat("<Lion’s Share #{0}> Lions E: {1} (after recoloring)", _moduleId, lions.Select(l => l.Name).JoinString(", "));
-
         _lionNames = lions.Select(l => l.Name).ToArray();
         var kingsMother = pride.Where(l => l.Status[year] == LionStatus.King).Select(l => l.Mother).FirstOrDefault();
 
         Debug.LogFormat(@"[Lion’s Share #{0}] Year: {1}", _moduleId, year + 1);
         Debug.LogFormat(@"[Lion’s Share #{0}] Lions present: {1}", _moduleId, lions
             .OrderBy(l => l.Name)
-            .Select(l => string.Format("{0} ({1} {2}{3})", l.Name, l.Male ? "male" : "female", l == leadHuntress ? "adult; lead huntress" : l.Status[year].ToString().ToLowerInvariant(), l.Mother != "" && l.Mother == kingsMother ? "; king’s sibling" : null))
+            .Select(l => string.Format("{0} ({1} {2}{3})", l.Name, l.Male ? "male" : "female", l == leadHuntress ? "adult; lead huntress" : l.Status[year].ToString().ToLowerInvariant(), l.Mother != "" && l.Mother == kingsMother && l.Status[year] != LionStatus.King ? "; king’s sibling" : null))
             .JoinString(", "));
 
         _selectedPieSliceColors = hues.Select(hue => Color.HSVToRGB(hue / 360f, .7f, 1f)).ToArray();
@@ -340,8 +332,6 @@ Sarafina,f,,223333333333"
             table[i][0] = entitlement[i];
         }
 
-        Debug.LogFormat("<Lion’s Share #{0}> Entitlements A: {1}", _moduleId, table.Select(row => row.JoinString(", ")).JoinString(" | "));
-
         var indicators =
             indicatorRule == IndicatorRule.Lit ? Bomb.GetOnIndicators() :
             indicatorRule == IndicatorRule.Unlit ? Bomb.GetOffIndicators() : Bomb.GetIndicators();
@@ -364,8 +354,6 @@ Sarafina,f,,223333333333"
             table[i][2] = serialNumberBonus;
         }
 
-        Debug.LogFormat("<Lion’s Share #{0}> Entitlements B: {1} (after indicators/SN)", _moduleId, table.Select(row => row.JoinString(", ")).JoinString(" | "));
-
         // Each unborn cub adds 1 unit to their mother’s entitlement.
         // Lions who are dead or absent have no entitlement.
         for (int i = 0; i < lions.Count; i++)
@@ -383,8 +371,6 @@ Sarafina,f,,223333333333"
                 entitlement[i] = 0;
             }
         }
-
-        Debug.LogFormat("<Lion’s Share #{0}> Entitlements C: {1} (after unborn)", _moduleId, table.Select(row => row.JoinString(", ")).JoinString(" | "));
 
         var totalEntitlement = entitlement.Sum();
         Debug.LogFormat(@"[Lion’s Share #{0}] Total entitlement: {1}", _moduleId, totalEntitlement);
