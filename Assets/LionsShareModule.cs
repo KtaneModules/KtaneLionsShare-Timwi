@@ -674,8 +674,8 @@ Sarafina,f,,223333333333"
                         yield return button;
                         var start = Time.time;
                         // Only go down to 1 because going down to 0 can give a strike, which would cause TP to miss the btnUp event.
-                        // Also stop after 5 seconds in case someone goes “99%” when there is more than one other lion.
-                        while (_currentPortions[todo.LionIndex] > 1 && _currentPortions[todo.LionIndex] != todo.TargetValue && Time.time - start < 5)
+                        // Also stop after 10 seconds in case someone goes “99%” when there is more than one other lion.
+                        while (_currentPortions[todo.LionIndex] > 1 && _currentPortions[todo.LionIndex] != todo.TargetValue && Time.time - start < 10)
                             yield return "trycancel";
                         yield return button;
                     }
