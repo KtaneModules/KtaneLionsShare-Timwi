@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
+VisualStudioVersion = 15.0.28307.136
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LionsShare", "LionsShare.csproj", "{AC2B5E1E-C3C7-50BD-6574-F71A2F04E89C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LionsShare.Editor", "LionsShare.Editor.csproj", "{78C8702C-0820-19D6-38B1-5642F95C0C14}"
@@ -22,5 +24,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F5AE4327-63D4-4E81-8435-9EB3D074602D}
 	EndGlobalSection
 EndGlobal
