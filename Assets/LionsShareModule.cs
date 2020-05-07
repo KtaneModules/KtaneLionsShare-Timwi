@@ -743,4 +743,42 @@ Sarafina,f,,223333333333"
             }
         }
     }
+
+    IEnumerator TwitchHandleForcedSolve()
+    {
+        foreach (var i in Enumerable.Range(0, _correctPortions.Length).OrderByDescending(x => _correctPortions[x] == 0 ? int.MaxValue : x))
+        {
+            Debug.LogFormat("<Lion’s Share #{0}> TP autosolve: will start to set {1} ({3}) to {2}. It is currently {4}", _moduleId, _lionNames[i], _correctPortions[i], i, _currentPortions[i]);
+            LionSelectables[i].OnInteract();
+            yield return new WaitForSeconds(.25f);
+            if (_currentPortions[i] == _correctPortions[i])
+                continue;
+            var goingUp = _correctPortions[i] > _currentPortions[i];
+            var button = goingUp ? ButtonInc : ButtonDec;
+            Debug.LogFormat("<Lion’s Share #{0}> — will press {1} (going {2})", _moduleId, button.name, goingUp ? "up" : "down");
+            if (goingUp || _currentPortions[i] > 1)
+            {
+                Debug.LogFormat("<Lion’s Share #{0}> — HOLDING {1}", _moduleId, button.name);
+                button.OnInteract();
+                var start = Time.time;
+                while (_currentPortions[i] > 1 && (goingUp ? _currentPortions[i] < _correctPortions[i] : _currentPortions[i] > _correctPortions[i]) && Time.time - start < 10)
+                {
+                    Debug.LogFormat("<Lion’s Share #{0}> — portion at {1}, target {2}", _moduleId, _currentPortions[i], _correctPortions[i]);
+                    yield return null;
+                }
+                Debug.LogFormat("<Lion’s Share #{0}> — portion at {1}, target {2}; RELEASING {3}", _moduleId, _currentPortions[i], _correctPortions[i], button.name);
+                button.OnInteractEnded();
+            }
+            if (_correctPortions[i] == 0)
+            {
+                ButtonDec.OnInteract();
+                yield return new WaitForSeconds(.1f);
+                ButtonDec.OnInteractEnded();
+            }
+        }
+
+        ButtonSubmit.OnInteract();
+        yield return new WaitForSeconds(.1f);
+        ButtonSubmit.OnInteractEnded();
+    }
 }
