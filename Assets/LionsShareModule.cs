@@ -638,6 +638,7 @@ Sarafina,f,,223333333333"
 
 #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"!{0} set Simba 12 [set the percentage for a lion; chain with commas] | !{0} submit | !{0} reset";
+    private bool TwitchShouldCancelCommand = false;
 #pragma warning restore 414
 
     sealed class TwitchTodo
@@ -714,12 +715,12 @@ Sarafina,f,,223333333333"
                     yield return new WaitForSeconds(.25f);
                     if (_currentPortions[todo.LionIndex] == todo.TargetValue)
                     {
-                        Debug.LogFormat("<Lion’s Share #{0}> — already at the right value", _moduleId);
+                        Debug.LogFormat("<Lion’s Share #{0}> — TP: {1} is already at the right value", _moduleId, _lionNames[todo.LionIndex]);
                         continue;
                     }
                     var goingUp = todo.TargetValue > _currentPortions[todo.LionIndex];
                     var button = goingUp ? ButtonInc : ButtonDec;
-                    Debug.LogFormat("<Lion’s Share #{0}> — will press {1} (going {2})", _moduleId, button.name, goingUp ? "up" : "down");
+                    Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: will press {3} (going {4})", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, button.name, goingUp ? "up" : "down");
                     if (goingUp || _currentPortions[todo.LionIndex] > 1)
                     {
                         Debug.LogFormat("<Lion’s Share #{0}> — HOLDING {1}", _moduleId, button.name);
@@ -729,10 +730,17 @@ Sarafina,f,,223333333333"
                         // Also stop after 10 seconds in case someone goes “99%” when there is more than one other lion.
                         while (_currentPortions[todo.LionIndex] > 1 && (goingUp ? _currentPortions[todo.LionIndex] < todo.TargetValue : _currentPortions[todo.LionIndex] > todo.TargetValue) && Time.time - start < 10)
                         {
-                            Debug.LogFormat("<Lion’s Share #{0}> — portion at {1}, target {2}", _moduleId, _currentPortions[todo.LionIndex], todo.TargetValue);
-                            yield return "trycancel";
+                            Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: now at {3}", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, _currentPortions[todo.LionIndex]);
+                            yield return null;
+                            if (TwitchShouldCancelCommand)
+                            {
+                                // Clean up by letting go of the button
+                                yield return button;
+                                yield return "cancelled";
+                                yield break;
+                            }
                         }
-                        Debug.LogFormat("<Lion’s Share #{0}> — portion at {1}, target {2}; RELEASING {3}", _moduleId, _currentPortions[todo.LionIndex], todo.TargetValue, button.name);
+                        Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: now at {3}; RELEASING {4}", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, _currentPortions[todo.LionIndex], button.name);
                         yield return button;
                     }
                     if (todo.TargetValue == 0)
