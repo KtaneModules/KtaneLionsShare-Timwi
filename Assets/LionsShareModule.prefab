@@ -237,7 +237,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ModuleType: LionsShareModule
-  ModuleDisplayName: "Lion\u2019s Share"
+  ModuleDisplayName: Lion's Share
   RequiresTimerVisibility: 0
 --- !u!114 &11464240
 MonoBehaviour:
