@@ -36,6 +36,7 @@ public class LionsShareModule : MonoBehaviour
     private bool _isSolved;
     private Color[] _unselectedPieSliceColors;
     private Color[] _selectedPieSliceColors;
+    private List<string> _allLionNames;
     private string[] _lionNames;
     private int[] _originalPortions;
     private int[] _currentPortions;
@@ -134,6 +135,8 @@ Sarafina,f,,223333333333"
             entitlementSn = 1;
             leadHuntressColorIx = 0;
             indicatorRule = IndicatorRule.Lit;
+
+            _allLionNames = _allLions.Select(l => l.Name).Concat(_visitingLionNames.Select(kvp => kvp.Key)).ToList();   // for Souvenir
         }
         else
         {
@@ -142,17 +145,17 @@ Sarafina,f,,223333333333"
                 // Pick 35 lion names
                 var allNames = rnd.ShuffleFisherYates(_maleNames.Concat(_femaleNames).ToArray());
                 var candidate = 0;
-                var lionNames = new List<string>();
-                while (lionNames.Count < 35)
+                _allLionNames = new List<string>();
+                while (_allLionNames.Count < 35)
                 {
                     var name = allNames[candidate++];
-                    if (!lionNames.Contains(name))
-                        lionNames.Add(name);
+                    if (!_allLionNames.Contains(name))
+                        _allLionNames.Add(name);
                 }
 
                 // Decide which lions are in the pride and which ones are visiting
-                pride = lionNames.Take(18).Select(name => new Lion { Name = name, Male = !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0 }).ToArray();
-                visitingLionNames = lionNames.Skip(18).Select(name => new KeyValuePair<string, bool>(name, !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0)).ToArray();
+                pride = _allLionNames.Take(18).Select(name => new Lion { Name = name, Male = !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0 }).ToArray();
+                visitingLionNames = _allLionNames.Skip(18).Select(name => new KeyValuePair<string, bool>(name, !_maleNames.Contains(name) ? false : !_femaleNames.Contains(name) ? true : rnd.Next(0, 2) == 0)).ToArray();
                 var birthyear = new int[18];
 
                 // Decide on a random birthyear and lifespan for each lion (lifespan includes “unborn” phase)
