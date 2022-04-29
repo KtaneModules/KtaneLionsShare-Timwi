@@ -640,7 +640,7 @@ Sarafina,f,,223333333333"
     }
 
 #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"!{0} set Simba 12 [set the percentage for a lion; chain with commas] | !{0} submit | !{0} reset";
+    private readonly string TwitchHelpMessage = @"!{0} set Simba 12 [set the percentage for a lion; chain with commas] | !{0} submit | !{0} reset | !{0} colorblind";
     private bool TwitchShouldCancelCommand = false;
 #pragma warning restore 414
 
