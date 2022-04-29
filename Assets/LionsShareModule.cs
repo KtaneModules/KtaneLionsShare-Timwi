@@ -660,7 +660,7 @@ Sarafina,f,,223333333333"
 
         if (Regex.IsMatch(command, @"^\s*color\s*blind\s*$", RegexOptions.IgnoreCase))
         {
-            _colorblindEnabled = true;
+            _colorblindEnabled = !_colorblindEnabled;
             updatePie();
             yield return null;
             yield break;
