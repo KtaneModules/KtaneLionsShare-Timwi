@@ -1,0 +1,10 @@
+{
+  "name": "LionsShare-Editor",
+  "references": [
+    "LionsShare"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": []
+}

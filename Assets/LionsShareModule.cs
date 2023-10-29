@@ -658,7 +658,7 @@ Sarafina,f,,223333333333"
             yield break;
         }
 
-        if (Regex.IsMatch(command, @"^\s*color\s*blind\s*$", RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(command, @"^\s*(?:color\s*blind|cb)\s*$", RegexOptions.IgnoreCase))
         {
             _colorblindEnabled = !_colorblindEnabled;
             updatePie();
@@ -708,32 +708,27 @@ Sarafina,f,,223333333333"
         if (stuffToDo.Count > 0)
         {
             yield return null;
+
+            // Execute the commands
             foreach (var stuff in stuffToDo)
             {
                 var todo = stuff as TwitchTodo;
                 if (todo != null)
                 {
-                    Debug.LogFormat("<Lion’s Share #{0}> TP: will start to set {1} ({3}) to {2}. It is currently {4}", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, todo.LionIndex, _currentPortions[todo.LionIndex]);
                     yield return new[] { LionSelectables[todo.LionIndex] };
                     yield return new WaitForSeconds(.25f);
                     if (_currentPortions[todo.LionIndex] == todo.TargetValue)
-                    {
-                        Debug.LogFormat("<Lion’s Share #{0}> — TP: {1} is already at the right value", _moduleId, _lionNames[todo.LionIndex]);
                         continue;
-                    }
                     var goingUp = todo.TargetValue > _currentPortions[todo.LionIndex];
                     var button = goingUp ? ButtonInc : ButtonDec;
-                    Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: will press {3} (going {4})", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, button.name, goingUp ? "up" : "down");
                     if (goingUp || _currentPortions[todo.LionIndex] > 1)
                     {
-                        Debug.LogFormat("<Lion’s Share #{0}> — HOLDING {1}", _moduleId, button.name);
                         yield return button;
                         var start = Time.time;
                         // Only go down to 1 because going down to 0 can give a strike, which would cause TP to miss the btnUp event.
                         // Also stop after 10 seconds in case someone goes “99%” when there is more than one other lion.
                         while (_currentPortions[todo.LionIndex] > 1 && (goingUp ? _currentPortions[todo.LionIndex] < todo.TargetValue : _currentPortions[todo.LionIndex] > todo.TargetValue) && Time.time - start < 10)
                         {
-                            Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: now at {3}", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, _currentPortions[todo.LionIndex]);
                             yield return null;
                             if (TwitchShouldCancelCommand)
                             {
@@ -743,7 +738,6 @@ Sarafina,f,,223333333333"
                                 yield break;
                             }
                         }
-                        Debug.LogFormat("<Lion’s Share #{0}> — TP: setting {1} to {2}: now at {3}; RELEASING {4}", _moduleId, _lionNames[todo.LionIndex], todo.TargetValue, _currentPortions[todo.LionIndex], button.name);
                         yield return button;
                     }
                     if (todo.TargetValue == 0)
@@ -752,6 +746,11 @@ Sarafina,f,,223333333333"
                 else
                     yield return stuff;
             }
+
+            // Output a warning message if one of the lions does not end up with the specified share
+            var wrong = stuffToDo.OfType<TwitchTodo>().Where(todo => _currentPortions[todo.LionIndex] != todo.TargetValue).ToArray();
+            if (wrong.Length > 0)
+                yield return string.Format("sendtochat @{{0}}, your Lion’s Share command is done; however, note that the following lion(s) ended up with a different share than you specified: {0}", wrong.Select(todo => _lionNames[todo.LionIndex]).JoinString(", "));
         }
     }
 
